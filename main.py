@@ -81,17 +81,56 @@ if __name__ == "__main__":
     # cut from start to item.
     x_train_uni, y_train_uni = univariate_data(uni_data, 0, rows_use, uni_past_history, uni_future_target)
     # cut from item till end
-    x_test_uni, y_test_uni = univariate_data(uni_data, rows_use, None, uni_past_history, uni_future_target)
+    x_val_uni, y_val_uni = univariate_data(uni_data, rows_use, None, uni_past_history, uni_future_target)
 
     print("x_train_uni, y_train_uni", x_train_uni.shape, y_train_uni.shape)
-    print("x_test_uni, y_test_uni", x_test_uni.shape, y_test_uni.shape)
+    print("x_val_uni, y_val_uni", x_val_uni.shape, y_val_uni.shape)
 
     printPlot([x_train_uni[0], y_train_uni[0]],0, 'noPred.png')
     printPlot([x_train_uni[0], y_train_uni[0], np.mean(x_train_uni[0])],0 , 'plotMean.png')
     
     
     #OK now doing RNN. this is the "Long Short Term Memory" RNN layer.
+    
+    BATCH_SIZE = 256
+    BUFFER_SIZE = 10000
+    
+    #what does this tuff do?
+    train_uni = tf.data.Dataset.from_tensor_slices( ( x_train_uni, y_train_uni) )
 
+    train_uni = train_uni.cache().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).repeat()
+
+    val_uni = tf.data.Dataset.from_tensor_slices( (x_val_uni, y_val_uni) )
+
+    val_uni = val_uni.batch(BATCH_SIZE).repeat()
+
+    simple_lstm = tf.keras.models.Sequential([ tf.keras.layers.LSTM(8, input_shape = x_train_uni.shape[-2:]),\
+            tf.keras.layers.Dense(1)])
+
+    simple_lstm.compile(optimizer='adam', loss='mse')
+
+
+    #check the model output...
+    EVALUATION_INTERVAL = 200
+
+    simple_lstm.fit(\
+        train_uni,
+        epochs=10,
+        steps_per_epoch=EVALUATION_INTERVAL,
+        validation_data = val_uni,
+        validation_steps=50
+            )
+
+    figs=[]
+    for i in range(0,10):
+        figs.insert(i, str(i)+".png")
+
+    #take 10 predictions
+    i=0
+    for x, y in val_uni.take(10):
+        pltData = [x[0].numpy(), y[0].numpy(), simple_lstm.predict(x)[0]]
+        printPlot(pltData, 0, figs[i])
+        i+=1
     
 
 
